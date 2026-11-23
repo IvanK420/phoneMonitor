@@ -38,7 +38,8 @@ def main(argv: list[str] | None = None) -> None:
         print("  (accès local uniquement : --lan pour le Wi-Fi, ou « adb reverse tcp:8765 tcp:8765 » en USB)")
     print()
 
-    uvicorn.run(create_app(token=config["token"]), host=options.host, port=options.port)
+    app = create_app(token=config["token"], oled=config.get("oled", {}))
+    uvicorn.run(app, host=options.host, port=options.port)
 
 
 if __name__ == "__main__":

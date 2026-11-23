@@ -95,3 +95,21 @@ def test_non_get_methods_are_405(client, method, path):
     response = client.request(method.upper(), path, headers={"X-Token": TOKEN})
 
     assert response.status_code == 405
+
+
+# --- /api/config : réglages du panneau, jamais le jeton --------------------------------
+
+
+def test_config_endpoint_returns_only_oled_settings():
+    app = create_app(stats=lambda: {}, ai=lambda s: {}, token=TOKEN, oled={"swap_minutes": 20})
+    c = TestClient(app, headers={"X-Token": TOKEN})
+
+    response = c.get("/api/config")
+
+    assert response.json() == {"oled": {"swap_minutes": 20}}
+    assert TOKEN not in response.text
+
+
+def test_config_endpoint_defaults_to_empty_and_requires_token(client):
+    assert client.get("/api/config").status_code == 401
+    assert client.get("/api/config", headers={"X-Token": TOKEN}).json() == {"oled": {}}

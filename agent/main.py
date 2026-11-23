@@ -39,8 +39,10 @@ def create_app(
     stats: StatsProvider | None = None,
     ai: AiProvider | None = None,
     token: str | None = None,
+    oled: dict | None = None,
     panel_dir: Path = PANEL_DIR,
 ) -> FastAPI:
+    oled = dict(oled or {})
     if stats is None:
         from agent.sources import build_stats_provider  # import tardif : les tests n'en ont pas besoin
 
@@ -50,7 +52,9 @@ def create_app(
     if token is None:
         from agent.config import load_config
 
-        token = load_config()["token"]
+        config = load_config()
+        token = config["token"]
+        oled = oled or config.get("oled", {})
 
     # Pas de /docs ni /openapi.json : l'agent n'expose que ce dont le panneau a besoin.
     app = FastAPI(title="PhoneBox Lite", docs_url=None, redoc_url=None, openapi_url=None)
@@ -69,6 +73,11 @@ def create_app(
     @api.get("/ai")
     def api_ai(include_stale: bool = False) -> dict:
         return ai(include_stale)
+
+    @api.get("/config")
+    def api_config() -> dict:
+        # Uniquement les réglages d'affichage ; le panneau fusionne avec ses défauts (oled.js).
+        return {"oled": oled}
 
     app.include_router(api)
 
