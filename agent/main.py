@@ -11,7 +11,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from agent.ai_sessions import AiSessionsCollector
+
 StatsProvider = Callable[[], dict]
+AiProvider = Callable[[bool], dict]  # include_stale -> {"sessions": [...]}
 
 PANEL_DIR = Path(__file__).resolve().parent.parent / "panel"
 
@@ -19,11 +22,22 @@ PANEL_DIR = Path(__file__).resolve().parent.parent / "panel"
 mimetypes.add_type("text/javascript", ".js")
 
 
-def create_app(stats: StatsProvider | None = None, panel_dir: Path = PANEL_DIR) -> FastAPI:
+def default_ai_provider() -> AiProvider:
+    home = Path.home()
+    return AiSessionsCollector(claude_dir=home / ".claude" / "sessions", codex_dir=home / ".codex" / "sessions").collect
+
+
+def create_app(
+    stats: StatsProvider | None = None,
+    ai: AiProvider | None = None,
+    panel_dir: Path = PANEL_DIR,
+) -> FastAPI:
     if stats is None:
         from agent.sources import build_stats_provider  # import tardif : les tests n'en ont pas besoin
 
         stats = build_stats_provider()
+    if ai is None:
+        ai = default_ai_provider()
 
     app = FastAPI(title="PhoneBox Lite")
 
@@ -34,6 +48,10 @@ def create_app(stats: StatsProvider | None = None, panel_dir: Path = PANEL_DIR) 
     @app.get("/api/stats")
     def api_stats() -> dict:
         return stats()
+
+    @app.get("/api/ai")
+    def api_ai(include_stale: bool = False) -> dict:
+        return ai(include_stale)
 
     # Monté en dernier : les routes /api et /healthz restent prioritaires.
     app.mount("/", StaticFiles(directory=panel_dir, html=True), name="panel")
