@@ -5,6 +5,8 @@ Aucun contenu de conversation, chemin, identifiant de session ou nom de modèle 
 """
 
 import json
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -108,3 +110,50 @@ class UsageTracker:
             record = parse_usage_line(raw.decode("utf-8", errors="replace"))
             if record is not None:
                 self._records[record.key] = record
+
+
+WINDOW_S = 5 * 3600
+_KINDS = ("input", "output", "cache_read", "cache_creation")
+
+
+def _totals(records: list[UsageRecord]) -> dict:
+    sums = {kind: sum(getattr(r, kind) for r in records) for kind in _KINDS}
+    return {**sums, "total": sum(sums.values())}
+
+
+def local_midnight(now: float) -> float:
+    """Début du jour local contenant `now` (heure du PC)."""
+    return datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+
+def summarize(records: list[UsageRecord], now: float, midnight: float) -> dict:
+    """Totaux du jour (depuis minuit local), fenêtre glissante de 5 h et total par heure du jour."""
+    today = [r for r in records if r.ts >= midnight]
+    hourly = [0] * 24
+    for r in today:
+        hourly[min(23, int((r.ts - midnight) // 3600))] += r.total  # jour de 25 h : dernière case
+    return {
+        "today": _totals(today),
+        "window_5h": _totals([r for r in records if r.ts >= now - WINDOW_S]),
+        "hourly": hourly,
+    }
+
+
+class UsageCollector:
+    """Assemble la réponse de `/api/usage`."""
+
+    def __init__(
+        self,
+        tracker: UsageTracker,
+        clock: Callable[[], float] = time.time,
+        midnight: Callable[[float], float] = local_midnight,
+    ):
+        self._tracker = tracker
+        self._clock = clock
+        self._midnight = midnight
+
+    def collect(self) -> dict:
+        now = self._clock()
+        midnight = self._midnight(now)
+        records = self._tracker.refresh(since=min(midnight, now - WINDOW_S))
+        return summarize(records, now=now, midnight=midnight)
