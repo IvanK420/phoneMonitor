@@ -13,9 +13,14 @@ from fastapi.staticfiles import StaticFiles
 
 from agent.ai_sessions import AiSessionsCollector
 from agent.auth import require_token
+from agent.cache import TTLCache
+from agent.claude_usage import UsageCollector, UsageTracker
 
 StatsProvider = Callable[[], dict]
 AiProvider = Callable[[bool], dict]  # include_stale -> {"sessions": [...]}
+UsageProvider = Callable[[], dict]  # {"today", "window_5h", "hourly"}
+
+USAGE_TTL_S = 10.0  # la consommation n'a pas besoin d'être plus fraîche
 
 PANEL_DIR = Path(__file__).resolve().parent.parent / "panel"
 
@@ -35,9 +40,16 @@ def default_ai_provider() -> AiProvider:
     ).collect
 
 
+def default_usage_provider(ttl: float = USAGE_TTL_S) -> UsageProvider:
+    """Transcriptions de ~/.claude/projects, relues au plus toutes les `ttl` secondes."""
+    tracker = UsageTracker(Path.home() / ".claude" / "projects")
+    return TTLCache(UsageCollector(tracker).collect, ttl=ttl)
+
+
 def create_app(
     stats: StatsProvider | None = None,
     ai: AiProvider | None = None,
+    usage: UsageProvider | None = None,
     token: str | None = None,
     oled: dict | None = None,
     panel_dir: Path = PANEL_DIR,
@@ -49,6 +61,8 @@ def create_app(
         stats = build_stats_provider()
     if ai is None:
         ai = default_ai_provider()
+    if usage is None:
+        usage = default_usage_provider()
     if token is None:
         from agent.config import load_config
 
@@ -73,6 +87,10 @@ def create_app(
     @api.get("/ai")
     def api_ai(include_stale: bool = False) -> dict:
         return ai(include_stale)
+
+    @api.get("/usage")
+    def api_usage() -> dict:
+        return usage()
 
     @api.get("/config")
     def api_config() -> dict:

@@ -113,3 +113,16 @@ def test_config_endpoint_returns_only_oled_settings():
 def test_config_endpoint_defaults_to_empty_and_requires_token(client):
     assert client.get("/api/config").status_code == 401
     assert client.get("/api/config", headers={"X-Token": TOKEN}).json() == {"oled": {}}
+
+
+# --- /api/usage : consommation de tokens Claude ---------------------------------------------
+
+
+def test_usage_endpoint_returns_provider_summary_with_token():
+    summary = {"today": {"total": 42}, "window_5h": {"total": 7}, "hourly": [0] * 24}
+    app = create_app(stats=lambda: {}, ai=lambda s: {}, usage=lambda: summary, token=TOKEN)
+    c = TestClient(app)
+
+    assert c.get("/api/usage").status_code == 401
+    assert c.get("/api/usage", headers={"X-Token": TOKEN}).json() == summary
+    assert c.post("/api/usage", headers={"X-Token": TOKEN}).status_code == 405
