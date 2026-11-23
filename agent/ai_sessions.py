@@ -17,6 +17,9 @@ STALE_FROM_S = 600
 
 _EXPLICIT_STATES = {"busy": "working", "idle": "idle"}
 
+CODEX_MAX_SESSIONS = 20
+_CODEX_SUFFIXES = {".jsonl", ".json"}
+
 
 def classify(age_s: float) -> str:
     """Heuristique v1 : modifié il y a < 10 s → working ; < 10 min → idle ; sinon stale."""
@@ -91,6 +94,24 @@ def scan_claude(directory: Path, now: float) -> list[dict]:
     return sessions
 
 
+def scan_codex(directory: Path, now: float) -> list[dict]:
+    """Parcourt `~/.codex/sessions` (format non documenté, absent de ce PC) : un fichier = une session,
+    datée par son mtime. Le contenu n'est jamais lu. Seuls les `CODEX_MAX_SESSIONS` plus récents sont gardés."""
+    if not directory.is_dir():
+        return []
+    stamps = []
+    for path in directory.rglob("*"):
+        if path.suffix not in _CODEX_SUFFIXES:
+            continue
+        try:
+            if path.is_file():
+                stamps.append(path.stat().st_mtime)
+        except OSError:
+            continue
+    recent = sorted(stamps, reverse=True)[:CODEX_MAX_SESSIONS]
+    return [_public("codex", UNKNOWN_PROJECT, int(mtime), classify(now - mtime)) for mtime in recent]
+
+
 class AiSessionsCollector:
     """Assemble la réponse de `/api/ai`."""
 
@@ -101,7 +122,7 @@ class AiSessionsCollector:
 
     def collect(self, include_stale: bool = False) -> dict:
         now = self._clock()
-        sessions = scan_claude(self._claude_dir, now)
+        sessions = scan_claude(self._claude_dir, now) + scan_codex(self._codex_dir, now)
         if not include_stale:
             sessions = [s for s in sessions if s["state"] != "stale"]
         return {"sessions": sessions}
