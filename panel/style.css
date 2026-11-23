@@ -10,6 +10,8 @@
   --unknown: #3a3a3a;
   --down: #4a8fd8;
   --up: #9a7ad6;
+  --working: #4a8fd8;
+  --idle: #5a5a5a;
   --gap: clamp(6px, 1.2vh, 12px);
 }
 
@@ -172,11 +174,71 @@ h2 .name {
 .spark .down-line { stroke: var(--down); }
 .spark .up-line { stroke: var(--up); opacity: 0.8; }
 
-/* Sessions IA (M3) */
+/* Sessions IA : bleu = en cours, gris = inactive */
 .placeholder {
   margin: auto;
   color: var(--dim);
   font-size: clamp(11px, 2.4vh, 16px);
+}
+
+.placeholder[hidden],
+.more[hidden] {
+  display: none;
+}
+
+.sessions {
+  list-style: none;
+  margin: 0.5em 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.session {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6em;
+  font-size: clamp(11px, 3vh, 19px);
+}
+
+.session .project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session .meta {
+  color: var(--dim);
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+}
+
+.badge-working {
+  background: var(--working);
+  animation: pulse 2s ease-in-out infinite;
+}
+.badge-idle { background: var(--idle); }
+.badge-stale,
+.badge-unknown { background: var(--unknown); }
+
+@keyframes pulse {
+  50% { opacity: 0.35; }
+}
+
+.more {
+  margin: auto 0 0;
+  color: var(--dim);
+  font-size: clamp(10px, 2.2vh, 14px);
 }
 
 /* Disques : bandeau bas */

@@ -2,10 +2,12 @@
 import { viewModel } from './lib/app-model.js';
 import { Poller } from './lib/poller.js';
 import { Ring } from './lib/ring.js';
+import { sessionsModel } from './lib/sessions.js';
 import { VERSION } from './lib/version.js';
 
 const SPARK_W = 300;
 const SPARK_H = 100;
+const AI_MAX_ITEMS = 4; // ce qui tient dans la tuile en paysage téléphone
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const clampPercent = (p) => Math.min(100, Math.max(0, typeof p === 'number' ? p : 0));
@@ -63,6 +65,37 @@ function renderDisks(disks) {
   });
 }
 
+function sessionRow({ project, tool, state, badge }) {
+  const row = document.createElement('li');
+  row.className = 'session';
+  const dot = document.createElement('span');
+  dot.className = `dot ${badge}`;
+  dot.title = state;
+  const name = document.createElement('span');
+  name.className = 'project';
+  name.textContent = project;
+  const meta = document.createElement('span');
+  meta.className = 'meta';
+  meta.textContent = `${tool} · ${state}`;
+  row.append(dot, name, meta);
+  return row;
+}
+
+// Clé de rendu : on ne touche au DOM que si la liste affichée change (l'animation du point reste fluide).
+let lastSessionsKey = '';
+
+function renderSessions(ai) {
+  const vm = sessionsModel(ai, { maxItems: AI_MAX_ITEMS });
+  const key = JSON.stringify(vm);
+  if (key === lastSessionsKey) return;
+  lastSessionsKey = key;
+  document.getElementById('ai-list').replaceChildren(...vm.items.map(sessionRow));
+  document.getElementById('ai-empty').hidden = !vm.empty;
+  const more = document.getElementById('ai-more');
+  more.hidden = vm.more === 0;
+  more.textContent = `+${vm.more} autre${vm.more > 1 ? 's' : ''}`;
+}
+
 function render(stats) {
   const vm = viewModel(stats);
   renderGauge('cpu', vm.cpu);
@@ -81,3 +114,5 @@ function setOffline(offline) {
 document.getElementById('root').title = `PhoneBox Lite v${VERSION}`;
 
 new Poller({ url: '/api/stats', onData: render, onStatus: setOffline }).start();
+// Seul le sondage des stats pilote l'indicateur « hors ligne ».
+new Poller({ url: '/api/ai', onData: renderSessions }).start();
