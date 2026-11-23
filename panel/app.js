@@ -5,12 +5,16 @@ import { Ring } from './lib/ring.js';
 import { mergeOledConfig } from './lib/oled.js';
 import { sessionsModel } from './lib/sessions.js';
 import { resolveToken, storedToken } from './lib/token.js';
+import { hourlyBarsPath, usageModel } from './lib/usage.js';
 import { VERSION } from './lib/version.js';
 import { Screen } from './screen.js';
 
 const SPARK_W = 300;
 const SPARK_H = 100;
-const AI_MAX_ITEMS = 4; // ce qui tient dans la tuile en paysage téléphone
+const AI_MAX_ITEMS = 3; // ce qui tient dans la tuile en paysage téléphone, sous les tokens
+const USAGE_POLL_MS = 10_000; // l'agent met la consommation en cache 10 s
+const USAGE_BARS_W = 240;
+const USAGE_BARS_H = 12;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const clampPercent = (p) => Math.min(100, Math.max(0, typeof p === 'number' ? p : 0));
@@ -96,7 +100,15 @@ function renderSessions(ai) {
   document.getElementById('ai-empty').hidden = !vm.empty;
   const more = document.getElementById('ai-more');
   more.hidden = vm.more === 0;
-  more.textContent = `+${vm.more} autre${vm.more > 1 ? 's' : ''}`;
+  more.textContent = `+${vm.more}`;
+}
+
+function renderUsage(usage) {
+  const vm = usageModel(usage);
+  document.getElementById('usage-today').textContent = vm.today;
+  document.getElementById('usage-window').textContent = vm.window;
+  document.getElementById('usage-detail').textContent = vm.empty ? '' : `sortie ${vm.output} · cache ${vm.cacheShare}`;
+  document.getElementById('usage-bars').setAttribute('d', hourlyBarsPath(vm.hourly, USAGE_BARS_W, USAGE_BARS_H));
 }
 
 function render(stats) {
@@ -175,6 +187,7 @@ async function main() {
   }).start();
   // Seul le sondage des stats pilote l'indicateur d'état.
   new Poller({ url: '/api/ai', headers, onData: renderSessions }).start();
+  new Poller({ url: '/api/usage', headers, intervalMs: USAGE_POLL_MS, onData: renderUsage }).start();
 }
 
 main();

@@ -237,10 +237,11 @@ h2 .name {
   50% { opacity: 0.35; }
 }
 
+/* « +N » dans le titre de la tuile : ne prend pas de place à la liste */
 .more {
-  margin: auto 0 0;
-  color: var(--dim);
-  font-size: clamp(10px, 2.2vh, 14px);
+  margin-left: 0.4em;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 /* Disques : bandeau bas */
@@ -375,4 +376,47 @@ body[data-mode='black'] .sleep {
   background: #111;
   color: var(--dim);
   font-size: clamp(10px, 2.2vh, 13px);
+}
+
+/* --- Tokens Claude (tête de la tuile Sessions IA) --------------------------------------- */
+.usage {
+  margin-top: 0.35em;
+  font-size: clamp(11px, 2.8vh, 17px);
+  font-variant-numeric: tabular-nums;
+}
+
+.usage-figures {
+  display: flex;
+  align-items: baseline;
+  gap: 1em;
+  white-space: nowrap;
+}
+
+.usage-figures b {
+  font-weight: 400;
+}
+
+.usage-label {
+  color: var(--dim);
+  font-size: 0.8em;
+}
+
+.usage-detail {
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--dim);
+  font-size: 0.75em;
+}
+
+.usage-bars {
+  display: block;
+  width: 100%;
+  height: clamp(6px, 2vh, 12px);
+  margin-top: 0.25em;
+}
+
+.usage-bars path {
+  fill: var(--working);
+  opacity: 0.55;
 }

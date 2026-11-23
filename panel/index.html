@@ -62,11 +62,19 @@
         </article>
 
         <article class="tile ai" id="ai">
-          <h2>Sessions IA</h2>
+          <h2>Sessions IA <span class="more" id="ai-more" hidden></span></h2>
+          <div class="usage" id="usage" title="Tokens Claude : total (entrée, sortie, cache) depuis minuit et sur les 5 dernières heures">
+            <div class="usage-figures">
+              <span><span class="usage-label">Jour</span> <b id="usage-today">—</b></span>
+              <span><span class="usage-label">5 h</span> <b id="usage-window">—</b></span>
+              <span class="usage-detail" id="usage-detail"></span>
+            </div>
+            <svg class="usage-bars" viewBox="0 0 240 12" preserveAspectRatio="none" aria-hidden="true">
+              <path id="usage-bars" d="" />
+            </svg>
+          </div>
           <ul class="sessions" id="ai-list"></ul>
-          <p class="placeholder" id="ai-empty">Aucune session active</p>
-          <p class="more" id="ai-more" hidden></p>
-        </article>
+          <p class="placeholder" id="ai-empty">Aucune session active</p>        </article>
       </section>
 
       <section class="disks" id="disks" aria-label="Disques"></section>
