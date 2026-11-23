@@ -1,0 +1,9 @@
+{
+  "name": "phonebox-lite-panel",
+  "private": true,
+  "type": "module",
+  "description": "Panneau web sans build : modules ES testés avec node --test, aucune dépendance",
+  "scripts": {
+    "test": "node --test \"tests/panel/**/*.test.js\""
+  }
+}

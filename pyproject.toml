@@ -1,0 +1,27 @@
+[project]
+name = "phonebox-lite"
+version = "0.1.0"
+description = "Panneau de bureau sur vieux téléphone : stats matériel et sessions IA"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.setuptools]
+packages = ["agent"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/agent"]
+pythonpath = ["."]
+markers = [
+    "system: appelle les vraies sources (psutil, nvidia-smi, FS) ; exclu par défaut",
+]
+addopts = "-m 'not system'"
