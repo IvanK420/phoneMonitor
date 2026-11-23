@@ -103,7 +103,7 @@ def test_output_contains_only_public_fields(claude_dir):
     dumped = json.dumps(sessions, ensure_ascii=False)
 
     assert all(set(s) == {"tool", "project", "state", "updated_at"} for s in sessions)
-    for secret in ["Users", "demo", "sessionId", "00000000", "pipe", "fixture-socket", "Nom de session", "bridge"]:
+    for secret in ["Users", "demo", "sessionId", "00000000", "pipe", "fixture-socket", "Nom de session", "bridge", "11111", "pid"]:
         assert secret not in dumped, secret
 
 
@@ -126,3 +126,28 @@ def test_include_stale_shows_them(claude_dir, tmp_path):
 
     assert "stale" in states
     assert len(states) == 6  # tous les .json des fixtures, sans le .key
+
+
+# --- Vivacité du processus (pid injecté) ---------------------------------------------
+
+
+def test_long_busy_session_with_live_process_is_working(claude_dir):
+    later = NOW + 3600  # une heure après le dernier updatedAt
+    sessions = by_project(scan_claude(claude_dir, now=later, pid_alive=lambda pid: pid == 11111))
+
+    assert sessions["mon-projet"]["state"] == "working"
+
+
+def test_dead_process_hides_session_by_default(claude_dir, tmp_path):
+    c = AiSessionsCollector(claude_dir, tmp_path / "x", clock=lambda: NOW, pid_alive=lambda pid: False)
+
+    assert c.collect()["sessions"] == []
+
+
+def test_liveness_check_failure_counts_as_unknown(claude_dir):
+    def broken(pid):
+        raise OSError("accès refusé")
+
+    sessions = by_project(scan_claude(claude_dir, now=NOW, pid_alive=broken))
+
+    assert sessions["mon-projet"]["state"] == "working"  # repli sur statut + âge

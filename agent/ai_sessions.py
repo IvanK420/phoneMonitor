@@ -30,8 +30,19 @@ def classify(age_s: float) -> str:
     return "stale"
 
 
-def session_state(status: object, age_s: float) -> str:
-    """Le statut explicite (`busy` / `idle`) prime, sauf pour une session figée depuis 10 min."""
+def session_state(status: object, age_s: float, alive: bool | None = None) -> str:
+    """Le statut explicite (`busy` / `idle`) prime sur l'âge du fichier.
+
+    `alive` = le processus de la session tourne-t-il encore (None : inconnu) :
+    - processus mort → stale (session terminée ou plantée) ;
+    - `busy` + processus vivant → working quel que soit l'âge (updatedAt reste figé
+      au début d'une longue tâche) ;
+    - sinon, une session figée depuis 10 min est stale.
+    """
+    if alive is False:
+        return "stale"
+    if status == "busy" and alive is True:
+        return "working"
     heuristic = classify(age_s)
     if heuristic == "stale":
         return "stale"
@@ -64,11 +75,25 @@ def parse_claude(text: str, mtime: float) -> dict:
 
     stamps_ms = [v for v in (data.get("updatedAt"), data.get("statusUpdatedAt")) if _is_number(v)]
     status = data.get("status")
+    pid = data.get("pid")
     return {
         "project": project_name(data.get("cwd")),
         "updated_at": int(max(stamps_ms) // 1000) if stamps_ms else int(mtime),
         "status": status if isinstance(status, str) else None,
+        "pid": pid if isinstance(pid, int) and not isinstance(pid, bool) else None,  # interne, jamais exposé
     }
+
+
+PidAlive = Callable[[int], bool]
+
+
+def _liveness(pid: int | None, pid_alive: PidAlive | None) -> bool | None:
+    if pid is None or pid_alive is None:
+        return None
+    try:
+        return bool(pid_alive(pid))
+    except Exception:  # noqa: BLE001 — accès refusé, etc. : on ne sait pas
+        return None
 
 
 def _public(tool: str, project: str, updated_at: int, state: str) -> dict:
@@ -76,7 +101,7 @@ def _public(tool: str, project: str, updated_at: int, state: str) -> dict:
     return {"tool": tool, "project": project, "state": state, "updated_at": updated_at}
 
 
-def scan_claude(directory: Path, now: float) -> list[dict]:
+def scan_claude(directory: Path, now: float, pid_alive: PidAlive | None = None) -> list[dict]:
     """Parcourt `~/.claude/sessions`. N'ouvre QUE les `*.json` : les `*.key` contiennent des secrets."""
     if not directory.is_dir():
         return []
@@ -89,7 +114,8 @@ def scan_claude(directory: Path, now: float) -> list[dict]:
             parsed = parse_claude(path.read_text(encoding="utf-8", errors="replace"), mtime=mtime)
         except OSError:  # session terminée entre le listage et la lecture, accès refusé…
             continue
-        state = session_state(parsed["status"], age_s=now - parsed["updated_at"])
+        alive = _liveness(parsed["pid"], pid_alive)
+        state = session_state(parsed["status"], age_s=now - parsed["updated_at"], alive=alive)
         sessions.append(_public("claude-code", parsed["project"], parsed["updated_at"], state))
     return sessions
 
@@ -115,14 +141,21 @@ def scan_codex(directory: Path, now: float) -> list[dict]:
 class AiSessionsCollector:
     """Assemble la réponse de `/api/ai`."""
 
-    def __init__(self, claude_dir: Path, codex_dir: Path, clock: Callable[[], float] = time.time):
+    def __init__(
+        self,
+        claude_dir: Path,
+        codex_dir: Path,
+        clock: Callable[[], float] = time.time,
+        pid_alive: PidAlive | None = None,
+    ):
         self._claude_dir = claude_dir
         self._codex_dir = codex_dir
         self._clock = clock
+        self._pid_alive = pid_alive
 
     def collect(self, include_stale: bool = False) -> dict:
         now = self._clock()
-        sessions = scan_claude(self._claude_dir, now) + scan_codex(self._codex_dir, now)
+        sessions = scan_claude(self._claude_dir, now, self._pid_alive) + scan_codex(self._codex_dir, now)
         if not include_stale:
             sessions = [s for s in sessions if s["state"] != "stale"]
         return {"sessions": sessions}

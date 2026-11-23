@@ -23,8 +23,14 @@ mimetypes.add_type("text/javascript", ".js")
 
 
 def default_ai_provider() -> AiProvider:
+    import psutil  # vivacité des processus de session ; import tardif comme les autres sources
+
     home = Path.home()
-    return AiSessionsCollector(claude_dir=home / ".claude" / "sessions", codex_dir=home / ".codex" / "sessions").collect
+    return AiSessionsCollector(
+        claude_dir=home / ".claude" / "sessions",
+        codex_dir=home / ".codex" / "sessions",
+        pid_alive=psutil.pid_exists,
+    ).collect
 
 
 def create_app(

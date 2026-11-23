@@ -39,3 +39,24 @@ def test_stale_wins_over_explicit_status():
 def test_unknown_status_falls_back_to_heuristic(status):
     assert session_state(status, age_s=5) == "working"
     assert session_state(status, age_s=60) == "idle"
+
+
+# --- Processus de la session (pid) : vivant, mort ou inconnu -------------------------
+
+
+def test_busy_with_live_process_stays_working_however_old():
+    # Longue tâche : updatedAt reste figé au début du tour tant que Claude travaille.
+    assert session_state("busy", age_s=3600, alive=True) == "working"
+
+
+def test_dead_process_is_stale_whatever_the_status():
+    assert session_state("busy", age_s=5, alive=False) == "stale"
+    assert session_state("idle", age_s=5, alive=False) == "stale"
+
+
+def test_idle_with_live_process_still_ages_out():
+    assert session_state("idle", age_s=3600, alive=True) == "stale"
+
+
+def test_unknown_liveness_keeps_age_guard():
+    assert session_state("busy", age_s=600, alive=None) == "stale"

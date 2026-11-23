@@ -44,15 +44,15 @@ def test_status_updated_at_is_used_when_more_recent():
 
 @pytest.mark.parametrize("name", ["truncated.json", "not_an_object.json"])
 def test_corrupt_json_falls_back_to_mtime(name):
-    assert parse(name) == {"project": "?", "updated_at": int(MTIME), "status": None}
+    assert parse(name) == {"project": "?", "updated_at": int(MTIME), "status": None, "pid": None}
 
 
 def test_missing_fields_fall_back_to_mtime():
-    assert parse("missing_fields.json") == {"project": "?", "updated_at": int(MTIME), "status": None}
+    assert parse("missing_fields.json") == {"project": "?", "updated_at": int(MTIME), "status": None, "pid": 44444}
 
 
 def test_wrong_types_are_ignored_field_by_field():
-    assert parse("wrong_types.json") == {"project": "?", "updated_at": int(MTIME), "status": "busy"}
+    assert parse("wrong_types.json") == {"project": "?", "updated_at": int(MTIME), "status": "busy", "pid": None}
 
 
 @pytest.mark.parametrize("cwd", ["", "/", "C:\\"])
@@ -60,3 +60,9 @@ def test_cwd_without_basename_gives_question_mark(cwd):
     text = '{"cwd": %s, "updatedAt": 1000}' % __import__("json").dumps(cwd)
 
     assert parse_claude(text, mtime=MTIME)["project"] == "?"
+
+
+def test_pid_is_read_but_only_if_integer():
+    assert parse("busy.json")["pid"] == 11111
+    assert parse_claude('{"pid": "11111"}', mtime=MTIME)["pid"] is None
+    assert parse_claude('{"pid": true}', mtime=MTIME)["pid"] is None
