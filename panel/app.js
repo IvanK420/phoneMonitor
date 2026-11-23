@@ -2,8 +2,11 @@
 import { viewModel } from './lib/app-model.js';
 import { Poller } from './lib/poller.js';
 import { Ring } from './lib/ring.js';
+import { mergeOledConfig } from './lib/oled.js';
 import { sessionsModel } from './lib/sessions.js';
+import { resolveToken } from './lib/token.js';
 import { VERSION } from './lib/version.js';
+import { Screen } from './screen.js';
 
 const SPARK_W = 300;
 const SPARK_H = 100;
@@ -105,14 +108,62 @@ function render(stats) {
   renderDisks(vm.disks);
 }
 
-function setOffline(offline) {
-  document.body.classList.toggle('offline', offline);
-  document.getElementById('status').hidden = !offline;
+// Pastille d'état : « hors ligne » (réseau) ou « jeton invalide » (agent joignable, accès refusé).
+const problems = { offline: false, auth: false };
+
+function updateStatus() {
+  const status = document.getElementById('status');
+  document.body.classList.toggle('offline', problems.offline || problems.auth);
+  status.hidden = !problems.offline && !problems.auth;
+  status.textContent = problems.auth ? 'Jeton invalide — ouvrir l’URL affichée par l’agent' : 'Hors ligne';
 }
 
-// Version en info-bulle plutôt qu'à l'écran : rien de fixe qui marque l'OLED.
-document.getElementById('root').title = `PhoneBox Lite v${VERSION}`;
+// Le simple accès à `localStorage` peut lever (cookies bloqués) : stockage vide en repli.
+function safeLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return { getItem: () => null, setItem: () => {} };
+  }
+}
 
-new Poller({ url: '/api/stats', onData: render, onStatus: setOffline }).start();
-// Seul le sondage des stats pilote l'indicateur « hors ligne ».
-new Poller({ url: '/api/ai', onData: renderSessions }).start();
+async function loadOledConfig(headers) {
+  try {
+    const response = await fetch('/api/config', { headers, cache: 'no-store' });
+    if (response.ok) return mergeOledConfig((await response.json()).oled);
+  } catch {
+    // agent injoignable au démarrage : réglages par défaut
+  }
+  return mergeOledConfig(undefined);
+}
+
+async function main() {
+  // Version en info-bulle plutôt qu'à l'écran : rien de fixe qui marque l'OLED.
+  document.getElementById('root').title = `PhoneBox Lite v${VERSION}`;
+
+  const { token, cleanUrl } = resolveToken(location.href, safeLocalStorage());
+  if (cleanUrl) history.replaceState(null, '', cleanUrl);
+  const headers = token ? { 'X-Token': token } : {};
+
+  const screenControl = new Screen(document.getElementById('root'), await loadOledConfig(headers));
+  screenControl.start();
+
+  new Poller({
+    url: '/api/stats',
+    headers,
+    onData: render,
+    onStatus: (offline) => {
+      problems.offline = offline;
+      screenControl.setOffline(offline);
+      updateStatus();
+    },
+    onAuthError: (bad) => {
+      problems.auth = bad;
+      updateStatus();
+    },
+  }).start();
+  // Seul le sondage des stats pilote l'indicateur d'état.
+  new Poller({ url: '/api/ai', headers, onData: renderSessions }).start();
+}
+
+main();

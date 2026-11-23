@@ -43,3 +43,14 @@ def test_files_outside_panel_are_not_reachable():
 
     assert c.get("/../agent/main.py").status_code == 404
     assert c.get("/%2e%2e/agent/main.py").status_code == 404
+
+
+def test_pwa_manifest_and_icons_are_served():
+    c = client()
+
+    manifest = c.get("/manifest.webmanifest")
+    assert manifest.status_code == 200
+    assert manifest.headers["content-type"].startswith("application/manifest+json")
+    assert manifest.json()["display"] == "fullscreen"
+    for icon in manifest.json()["icons"]:
+        assert c.get("/" + icon["src"]).headers["content-type"] == "image/png"

@@ -32,6 +32,9 @@ body {
 }
 
 .panel {
+  /* Décalage de pixels (OLED) : --dx / --dy mis à jour par screen.js, transition imperceptible */
+  transform: translate(var(--dx, 0px), var(--dy, 0px));
+  transition: transform 2s ease-in-out, opacity 1s;
   height: 100vh;
   height: 100dvh;
   display: grid;
@@ -39,7 +42,6 @@ body {
   gap: var(--gap);
   padding: var(--gap) calc(var(--gap) + env(safe-area-inset-right)) var(--gap)
     calc(var(--gap) + env(safe-area-inset-left));
-  transition: opacity 0.4s;
 }
 
 .row {
@@ -308,4 +310,69 @@ body.offline .panel {
   .disks {
     flex-direction: column;
   }
+}
+
+/* --- Modes d'écran (OLED) ------------------------------------------------------------ */
+body[data-mode='dim'] .panel {
+  opacity: var(--night-brightness, 0.1);
+}
+
+body[data-mode='black'] .panel,
+body[data-mode='black'] .status {
+  visibility: hidden;
+}
+
+.sleep {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(calc(-50% + var(--dx, 0px) * 20), calc(-50% + var(--dy, 0px) * 20));
+  transition: transform 2s ease-in-out;
+  color: #333;
+  font-size: 12px;
+}
+
+body[data-mode='black'] .sleep {
+  display: block;
+}
+
+/* --- Encart de démarrage : plein écran + avis Wake Lock -------------------------------- */
+.start {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--gap) * 4);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: min(90vw, 560px);
+  text-align: center;
+}
+
+.start[hidden],
+.fullscreen[hidden],
+.wakelock[hidden] {
+  display: none;
+}
+
+.fullscreen {
+  padding: 10px 22px;
+  border: 1px solid var(--dim);
+  border-radius: 999px;
+  background: #000;
+  color: var(--fg);
+  font: inherit;
+  font-size: clamp(13px, 3vh, 18px);
+}
+
+.wakelock {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #111;
+  color: var(--dim);
+  font-size: clamp(10px, 2.2vh, 13px);
 }
