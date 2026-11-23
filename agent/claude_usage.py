@@ -7,6 +7,7 @@ Aucun contenu de conversation, chemin, identifiant de session ou nom de modèle 
 import json
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -62,3 +63,48 @@ def parse_usage_line(line: str) -> UsageRecord | None:
         cache_read=_count(usage.get("cache_read_input_tokens")),
         cache_creation=_count(usage.get("cache_creation_input_tokens")),
     )
+
+
+class UsageTracker:
+    """Lit les transcriptions de façon incrémentale : seules les lignes ajoutées depuis la dernière
+    lecture sont analysées, et seuls les fichiers modifiés dans la période sont ouverts."""
+
+    def __init__(self, projects_dir: Path):
+        self._dir = projects_dir
+        self._offsets: dict[Path, int] = {}
+        self._records: dict[str, UsageRecord] = {}
+
+    def refresh(self, since: float) -> list[UsageRecord]:
+        """Met à jour puis renvoie les relevés dont l'horodatage est >= `since`."""
+        if self._dir.is_dir():
+            for path in self._dir.rglob("*.jsonl"):
+                try:
+                    stat = path.stat()
+                except OSError:
+                    continue
+                if stat.st_mtime >= since:
+                    self._read_new_lines(path, stat.st_size)
+        self._records = {k: r for k, r in self._records.items() if r.ts >= since}
+        return list(self._records.values())
+
+    def _read_new_lines(self, path: Path, size: int) -> None:
+        offset = self._offsets.get(path, 0)
+        if size < offset:  # fichier tronqué ou remplacé : on repart du début
+            offset = 0
+        if size == offset:
+            return
+        try:
+            with path.open("rb") as f:
+                f.seek(offset)
+                data = f.read(size - offset)
+        except OSError:
+            return
+        end = data.rfind(b"\n")
+        if end < 0:  # ligne en cours d'écriture : on attend qu'elle soit complète
+            self._offsets[path] = offset
+            return
+        self._offsets[path] = offset + end + 1
+        for raw in data[: end + 1].splitlines():
+            record = parse_usage_line(raw.decode("utf-8", errors="replace"))
+            if record is not None:
+                self._records[record.key] = record
