@@ -103,7 +103,7 @@ test('réponse HTTP en erreur ou JSON invalide → échec', async () => {
       throw new SyntaxError('Unexpected token');
     },
   });
-  const { poller, data } = setup([http(500), http(401), badJson]);
+  const { poller, data } = setup([http(500), http(503), badJson]);
 
   for (let i = 0; i < 3; i++) await poller.tick();
 
@@ -208,4 +208,50 @@ test('cadence fixe : requête plus longue que l’intervalle → relance immédi
   await poller.idle();
 
   assert.deepEqual([...timers.pending.values()].map((t) => t.ms), [0]);
+});
+
+test('en-têtes transmis à chaque requête (jeton)', async () => {
+  const seen = [];
+  const poller = new Poller({
+    url: '/api/stats',
+    headers: { 'X-Token': 'ABC' },
+    fetch: async (url, init) => {
+      seen.push(init.headers);
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+    onData: () => {},
+    timers: fakeTimers(),
+  });
+
+  await poller.tick();
+
+  assert.deepEqual(seen, [{ 'X-Token': 'ABC' }]);
+});
+
+test('401 → onAuthError, une fois par épisode ; ne compte pas comme hors ligne', async () => {
+  const auth = [];
+  const status = [];
+  const responses = [http(401), http(401), http(401), http(401), ok({ ts: 1 }), http(401)];
+  const poller = new Poller({
+    url: '/api/stats',
+    fetch: () => responses.shift()(),
+    onData: () => {},
+    onStatus: (o) => status.push(o),
+    onAuthError: (bad) => auth.push(bad),
+    timers: fakeTimers(),
+  });
+
+  for (let i = 0; i < 6; i++) await poller.tick();
+
+  assert.deepEqual(auth, [true, false, true]);
+  assert.deepEqual(status, []);
+  assert.equal(poller.offline, false);
+});
+
+test('hors ligne puis 401 : l’agent est joignable, retour en ligne', async () => {
+  const { poller, status } = setup([down, down, down, http(401)]);
+
+  for (let i = 0; i < 4; i++) await poller.tick();
+
+  assert.deepEqual(status, [true, false]);
 });

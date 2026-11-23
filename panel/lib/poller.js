@@ -11,6 +11,7 @@ export class Poller {
   #running = false;
   #timer = null;
   #inflight = Promise.resolve();
+  #authError = false;
 
   constructor({
     url,
@@ -18,13 +19,15 @@ export class Poller {
     onData,
     onStatus = () => {},
     onError = (err) => console.error(err),
+    onAuthError = () => {},
+    headers = {},
     intervalMs = 2000,
     timeoutMs = 1500,
     maxFailures = 3,
     timers = defaultTimers,
     now = () => globalThis.performance.now(),
   }) {
-    Object.assign(this, { url, fetch, onData, onStatus, onError, intervalMs, timeoutMs, maxFailures, timers, now });
+    Object.assign(this, { url, fetch, onData, onStatus, onError, onAuthError, headers, intervalMs, timeoutMs, maxFailures, timers, now });
   }
 
   get offline() {
@@ -36,7 +39,17 @@ export class Poller {
     const timeout = this.timers.setTimeout(() => controller.abort(), this.timeoutMs);
     let data;
     try {
-      const response = await this.fetch(this.url, { cache: 'no-store', signal: controller.signal });
+      const response = await this.fetch(this.url, {
+        cache: 'no-store',
+        headers: this.headers,
+        signal: controller.signal,
+      });
+      // Agent joignable mais jeton refusé : ce n'est pas une panne réseau, on le signale à part.
+      this.#setAuthError(response.status === 401);
+      if (response.status === 401) {
+        this.#succeed(); // l'agent répond : pas « hors ligne »
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       data = await response.json();
     } catch {
@@ -88,6 +101,12 @@ export class Poller {
   #succeed() {
     this.#failures = 0;
     if (this.#offline) this.#setOffline(false);
+  }
+
+  #setAuthError(value) {
+    if (value === this.#authError) return;
+    this.#authError = value;
+    this.onAuthError(value);
   }
 
   #setOffline(value) {
