@@ -35,6 +35,24 @@ export function formatRate(kbps) {
   return `${num(kbps, 0)} kb/s`;
 }
 
-export const formatPercent = (p) => (isMissing(p) ? MISSING : `${num(p, 0)} %`);
+// Nombres de tokens (unités décimales) : 714 · 1,2 k · 337 k · 63,8 M · 1,5 G.
+const TOKEN_UNITS = [
+  [1e3, 'k'],
+  [1e6, 'M'],
+  [1e9, 'G'],
+];
+
+export function formatTokens(n) {
+  if (isMissing(n)) return MISSING;
+  if (n < 999.5) return num(n, 0);
+  for (const [size, unit] of TOKEN_UNITS) {
+    const x = n / size;
+    // On passe à l'unité suivante plutôt que d'afficher « 1000 k ».
+    if (x < 999.5 || unit === 'G') return `${num(x, x < 99.95 ? 1 : 0)} ${unit}`;
+  }
+  return MISSING; // inatteignable
+}
+
+export const formatPercent =(p) => (isMissing(p) ? MISSING : `${num(p, 0)} %`);
 export const formatTemp = (c) => (isMissing(c) ? MISSING : `${num(c, 0)} °C`);
 export const formatMb = (mb) => (isMissing(mb) ? MISSING : `${num(mb, 0)} Mo`);
