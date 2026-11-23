@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { formatGb, formatPercent, formatRate, formatTemp, formatMb } from '../../panel/lib/format.js';
+import { formatGb, formatPercent, formatRate, formatTemp, formatMb, formatUsedTotal } from '../../panel/lib/format.js';
 
 test('formatGb : virgule décimale, un chiffre sous 100 Go, entier au-delà', () => {
   assert.equal(formatGb(11.24), '11,2 Go');
@@ -38,4 +38,11 @@ test('valeur absente : tiret cadratin', () => {
     assert.equal(fn(null), '—', fn.name);
     assert.equal(fn(undefined), '—', fn.name);
   }
+});
+
+test('formatUsedTotal : unité affichée une seule fois si identique', () => {
+  assert.equal(formatUsedTotal(12, 15.6), '12,0 / 15,6 Go');
+  assert.equal(formatUsedTotal(410, 953), '410 / 953 Go');
+  assert.equal(formatUsedTotal(900, 1863), '900 Go / 1,8 To');
+  assert.equal(formatUsedTotal(null, 32), '— / 32,0 Go');
 });

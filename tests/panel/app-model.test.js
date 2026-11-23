@@ -35,7 +35,7 @@ test('RAM : utilisé / total', () => {
     percent: 35,
     level: 'ok',
     value: '35 %',
-    detail: '11,2 Go / 32,0 Go',
+    detail: '11,2 / 32,0 Go',
   });
 });
 
@@ -64,7 +64,7 @@ test('GPU aux valeurs [N/A] : libellés tirets, niveau unknown', () => {
 
 test('disques : pourcentage calculé et niveau', () => {
   assert.deepEqual(viewModel(STATS).disks, [
-    { mount: 'C:', percent: 43, level: 'ok', detail: '410 Go / 953 Go' },
+    { mount: 'C:', percent: 43, level: 'ok', detail: '410 / 953 Go' },
   ]);
 });
 

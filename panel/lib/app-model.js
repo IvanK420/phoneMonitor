@@ -1,7 +1,7 @@
 // Transforme la réponse de /api/stats en tout ce que le DOM affiche.
 // app.js ne fait plus que recopier ces valeurs dans les éléments : aucune décision côté DOM.
 import { level } from './thresholds.js';
-import { formatGb, formatMb, formatPercent, formatRate, formatTemp } from './format.js';
+import { formatMb, formatPercent, formatRate, formatTemp, formatUsedTotal } from './format.js';
 
 const round1 = (n) => Math.round(n * 10) / 10;
 const present = (v) => typeof v === 'number' && !Number.isNaN(v);
@@ -16,7 +16,7 @@ function cpu({ percent, temp_c } = {}) {
 }
 
 function ram({ used_gb, total_gb, percent } = {}) {
-  const detail = present(total_gb) ? `${formatGb(used_gb)} / ${formatGb(total_gb)}` : '';
+  const detail = present(total_gb) ? formatUsedTotal(used_gb, total_gb) : '';
   return gauge(percent, detail);
 }
 
@@ -31,7 +31,7 @@ function gpu(g) {
 
 function disk({ mount, used_gb, total_gb }) {
   const percent = total_gb > 0 ? round1((used_gb / total_gb) * 100) : 0;
-  return { mount, percent, level: level(percent), detail: `${formatGb(used_gb)} / ${formatGb(total_gb)}` };
+  return { mount, percent, level: level(percent), detail: formatUsedTotal(used_gb, total_gb) };
 }
 
 function net({ down_kbps, up_kbps } = {}) {

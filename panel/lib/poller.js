@@ -22,8 +22,9 @@ export class Poller {
     timeoutMs = 1500,
     maxFailures = 3,
     timers = defaultTimers,
+    now = () => globalThis.performance.now(),
   }) {
-    Object.assign(this, { url, fetch, onData, onStatus, onError, intervalMs, timeoutMs, maxFailures, timers });
+    Object.assign(this, { url, fetch, onData, onStatus, onError, intervalMs, timeoutMs, maxFailures, timers, now });
   }
 
   get offline() {
@@ -65,12 +66,17 @@ export class Poller {
     return this.#inflight;
   }
 
+  // Cadence fixe : la requête suivante part `intervalMs` après le DÉBUT de la précédente,
+  // pour qu'une requête lente (agent figé) n'allonge pas le délai avant « hors ligne ».
   #loop() {
     this.#timer = null;
+    const startedAt = this.now();
     this.#inflight = this.tick()
       .catch((err) => this.onError(err)) // un bug de rendu ne doit pas arrêter le sondage
       .then(() => {
-        if (this.#running) this.#timer = this.timers.setTimeout(() => this.#loop(), this.intervalMs);
+        if (!this.#running) return;
+        const wait = Math.max(0, this.intervalMs - (this.now() - startedAt));
+        this.#timer = this.timers.setTimeout(() => this.#loop(), wait);
       });
   }
 

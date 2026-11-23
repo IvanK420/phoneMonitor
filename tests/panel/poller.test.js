@@ -47,6 +47,7 @@ function setup(responses) {
     onData: (d) => data.push(d),
     onStatus: (offline) => status.push(offline),
     timers,
+    now: () => 0, // requêtes instantanées
   });
   return { poller, timers, data, status, calls };
 }
@@ -124,7 +125,7 @@ test('requête bloquée → annulée après timeoutMs et comptée comme échec',
   assert.equal(poller.offline, true);
 });
 
-test('start : interroge tout de suite, puis 2 s après la fin de la requête', async () => {
+test('start : interroge tout de suite, puis 2 s plus tard', async () => {
   const { poller, timers, calls } = setup([ok({}), ok({}), ok({})]);
 
   poller.start();
@@ -176,4 +177,35 @@ test('une erreur de rendu dans onData ne casse pas la boucle', async () => {
   assert.deepEqual(errors, ['bug de rendu']);
   assert.equal(poller.offline, false);
   assert.equal(timers.pending.size, 1); // prochaine interrogation planifiée
+});
+
+test('cadence fixe : la requête suivante part 2 s après le début de la précédente', async () => {
+  const timers = fakeTimers();
+  let clock = 0;
+  const slowFailure = async () => {
+    clock += 1500; // requête bloquée jusqu'au délai max (cas adb reverse, agent coupé)
+    throw new Error('aborted');
+  };
+  const poller = new Poller({ url: '/api/stats', fetch: slowFailure, onData: () => {}, timers, now: () => clock });
+
+  poller.start();
+  await poller.idle();
+
+  const delays = [...timers.pending.values()].map((t) => t.ms);
+  assert.deepEqual(delays, [500]);
+});
+
+test('cadence fixe : requête plus longue que l’intervalle → relance immédiate', async () => {
+  const timers = fakeTimers();
+  let clock = 0;
+  const verySlow = async () => {
+    clock += 2500;
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const poller = new Poller({ url: '/api/stats', fetch: verySlow, onData: () => {}, timers, now: () => clock });
+
+  poller.start();
+  await poller.idle();
+
+  assert.deepEqual([...timers.pending.values()].map((t) => t.ms), [0]);
 });

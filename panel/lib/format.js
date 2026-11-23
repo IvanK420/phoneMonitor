@@ -19,6 +19,14 @@ export function formatGb(gb) {
   return gb >= 1000 ? `${compact(gb / 1024)} To` : `${compact(gb)} Go`;
 }
 
+// « 12,0 / 15,6 Go » : l'unité n'est répétée que si elle diffère (« 900 Go / 1,8 To »).
+export function formatUsedTotal(usedGb, totalGb) {
+  const used = formatGb(usedGb);
+  const total = formatGb(totalGb);
+  const unit = total.slice(total.lastIndexOf(' '));
+  return used.endsWith(unit) ? `${used.slice(0, -unit.length)} / ${total}` : `${used} / ${total}`;
+}
+
 // Débits en kilobits/s (unités décimales, comme les débits réseau).
 export function formatRate(kbps) {
   if (isMissing(kbps)) return MISSING;
