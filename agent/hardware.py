@@ -4,15 +4,19 @@ Les vraies sources (psutil, nvidia-smi) vivent dans `sources.py` ; ici on ne fai
 que transformer leurs sorties en schéma `/api/stats` (voir 02-api.md).
 """
 
+import logging
 import time
 from collections.abc import Callable
-from typing import Protocol
+from typing import Protocol, TypeVar
 
 from agent.net_rate import NetCounters, net_rate
 
 NVIDIA_SMI_QUERY = "name,utilization.gpu,memory.used,temperature.gpu"
 _NVIDIA_FIELDS = 4
 _GIB = 1024**3
+
+log = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 class HardwareSources(Protocol):
@@ -35,6 +39,15 @@ def _percent(used: int, total: int) -> float:
     return round(used / total * 100, 1) if total > 0 else 0.0
 
 
+def _safe(read: Callable[[], T], default: T, what: str) -> T:
+    """Une source optionnelle qui échoue donne `default` au lieu de faire tomber l'endpoint."""
+    try:
+        return read()
+    except Exception as exc:  # noqa: BLE001 — frontière système, tout est possible
+        log.debug("source %s indisponible : %r", what, exc)
+        return default
+
+
 def normalize_mount(mount: str) -> str:
     """`C:\\` → `C:` ; `/home/` → `/home` ; `/` reste `/`."""
     return mount.rstrip("\\/") or mount[:1]
@@ -55,13 +68,13 @@ class StatsCollector:
             "ts": int(now),
             "cpu": self._cpu(),
             "ram": self._ram(),
-            "gpu": parse_nvidia_smi(s.nvidia_smi()),
+            "gpu": parse_nvidia_smi(_safe(s.nvidia_smi, None, "gpu")),
             "disks": self._disks(),
             "net": self._net(now),
         }
 
     def _cpu(self) -> dict:
-        temp = self._sources.cpu_temp()
+        temp = _safe(self._sources.cpu_temp, None, "température")
         return {
             "percent": round(self._sources.cpu_percent(), 1),
             "temp_c": round(temp) if temp is not None else None,
@@ -73,8 +86,13 @@ class StatsCollector:
 
     def _disks(self) -> list[dict]:
         disks = []
-        for mount in self._sources.mounts():
-            used, total = self._sources.disk_usage(mount)
+        for mount in _safe(self._sources.mounts, [], "volumes"):
+            try:
+                used, total = self._sources.disk_usage(mount)
+            except OSError:  # lecteur CD vide, accès refusé…
+                continue
+            if total <= 0:
+                continue
             disks.append({"mount": normalize_mount(mount), "used_gb": _gb(used), "total_gb": _gb(total)})
         return disks
 
