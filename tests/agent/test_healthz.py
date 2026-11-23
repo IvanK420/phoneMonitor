@@ -4,7 +4,7 @@ from agent.main import create_app
 
 
 def test_healthz_returns_ok():
-    client = TestClient(create_app())
+    client = TestClient(create_app(stats=lambda: {}, ai=lambda include_stale: {}, token="t" * 43))
 
     response = client.get("/healthz")
 

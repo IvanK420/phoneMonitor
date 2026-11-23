@@ -5,7 +5,8 @@ from agent.main import create_app
 
 def client(tmp_path=None) -> TestClient:
     kwargs = {"panel_dir": tmp_path} if tmp_path else {}
-    return TestClient(create_app(stats=lambda: {"ts": 1}, **kwargs))
+    token = "t" * 43
+    return TestClient(create_app(stats=lambda: {"ts": 1}, token=token, **kwargs), headers={"X-Token": token})
 
 
 def test_root_serves_panel_index():

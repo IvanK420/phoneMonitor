@@ -8,10 +8,11 @@ import mimetypes
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from agent.ai_sessions import AiSessionsCollector
+from agent.auth import require_token
 
 StatsProvider = Callable[[], dict]
 AiProvider = Callable[[bool], dict]  # include_stale -> {"sessions": [...]}
@@ -20,6 +21,7 @@ PANEL_DIR = Path(__file__).resolve().parent.parent / "panel"
 
 # Le registre Windows peut associer .js à text/plain : les modules ES seraient refusés.
 mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 def default_ai_provider() -> AiProvider:
@@ -36,6 +38,7 @@ def default_ai_provider() -> AiProvider:
 def create_app(
     stats: StatsProvider | None = None,
     ai: AiProvider | None = None,
+    token: str | None = None,
     panel_dir: Path = PANEL_DIR,
 ) -> FastAPI:
     if stats is None:
@@ -44,20 +47,30 @@ def create_app(
         stats = build_stats_provider()
     if ai is None:
         ai = default_ai_provider()
+    if token is None:
+        from agent.config import load_config
 
-    app = FastAPI(title="PhoneBox Lite")
+        token = load_config()["token"]
+
+    # Pas de /docs ni /openapi.json : l'agent n'expose que ce dont le panneau a besoin.
+    app = FastAPI(title="PhoneBox Lite", docs_url=None, redoc_url=None, openapi_url=None)
 
     @app.get("/healthz")
     def healthz() -> dict:
         return {"ok": True}
 
-    @app.get("/api/stats")
+    # Lecture seule : uniquement des GET ; tout le reste répond 405.
+    api = APIRouter(prefix="/api", dependencies=[Depends(require_token(token))])
+
+    @api.get("/stats")
     def api_stats() -> dict:
         return stats()
 
-    @app.get("/api/ai")
+    @api.get("/ai")
     def api_ai(include_stale: bool = False) -> dict:
         return ai(include_stale)
+
+    app.include_router(api)
 
     # Monté en dernier : les routes /api et /healthz restent prioritaires.
     app.mount("/", StaticFiles(directory=panel_dir, html=True), name="panel")

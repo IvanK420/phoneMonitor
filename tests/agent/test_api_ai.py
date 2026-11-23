@@ -19,7 +19,8 @@ def client(tmp_path: Path) -> TestClient:
     for p in claude.iterdir():
         os.utime(p, (NOW - 2000, NOW - 2000))
     collector = AiSessionsCollector(claude, tmp_path / "codex-absent", clock=lambda: NOW)
-    return TestClient(create_app(stats=lambda: {}, ai=collector.collect))
+    token = "t" * 43
+    return TestClient(create_app(stats=lambda: {}, ai=collector.collect, token=token), headers={"X-Token": token})
 
 
 def test_get_ai_lists_active_sessions(client):

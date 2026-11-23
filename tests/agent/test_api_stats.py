@@ -5,10 +5,16 @@ from agent.main import create_app
 
 from .fakes import FakeClock, FakeSources
 
+TOKEN = "t" * 43
+
+
+def make_client(stats) -> TestClient:
+    return TestClient(create_app(stats=stats, token=TOKEN), headers={"X-Token": TOKEN})
+
 
 def test_get_stats_returns_collector_json():
     collector = StatsCollector(FakeSources(), clock=FakeClock())
-    client = TestClient(create_app(stats=collector.collect))
+    client = make_client(collector.collect)
 
     response = client.get("/api/stats")
 
@@ -25,7 +31,7 @@ def test_get_stats_without_gpu_serializes_null():
     sources = FakeSources()
     sources.smi = None
     sources.temp = None
-    client = TestClient(create_app(stats=StatsCollector(sources, clock=FakeClock()).collect))
+    client = make_client(StatsCollector(sources, clock=FakeClock()).collect)
 
     body = client.get("/api/stats").json()
 
@@ -40,7 +46,7 @@ def test_each_request_asks_the_provider():
         calls.append(1)
         return {"ts": len(calls)}
 
-    client = TestClient(create_app(stats=provider))
+    client = make_client(provider)
 
     client.get("/api/stats")
     client.get("/api/stats")
