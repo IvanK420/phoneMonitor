@@ -7,3 +7,6 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 node_modules/
+
+# Résultats de mesure (bench)
+bench/results/
