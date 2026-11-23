@@ -11,7 +11,8 @@ import { Screen } from './screen.js';
 
 const SPARK_W = 300;
 const SPARK_H = 100;
-const AI_MAX_ITEMS = 3; // ce qui tient dans la tuile en paysage téléphone, sous les tokens
+// Sessions visibles : ce qui tient dans la tuile sous les tokens (plus haute en portrait).
+const aiMaxItems = () => (matchMedia('(orientation: portrait)').matches ? 6 : 3);
 const USAGE_POLL_MS = 10_000; // l'agent met la consommation en cache 10 s
 const USAGE_BARS_W = 240;
 const USAGE_BARS_H = 12;
@@ -92,7 +93,7 @@ function sessionRow({ project, tool, state, badge }) {
 let lastSessionsKey = '';
 
 function renderSessions(ai) {
-  const vm = sessionsModel(ai, { maxItems: AI_MAX_ITEMS });
+  const vm = sessionsModel(ai, { maxItems: aiMaxItems() });
   const key = JSON.stringify(vm);
   if (key === lastSessionsKey) return;
   lastSessionsKey = key;

@@ -12,7 +12,7 @@
   --up: #9a7ad6;
   --working: #4a8fd8;
   --idle: #5a5a5a;
-  --gap: clamp(6px, 1.2vh, 12px);
+  --gap: clamp(6px, 1.2vmin, 12px);
 }
 
 * {
@@ -56,7 +56,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: clamp(6px, 1.4vh, 12px) clamp(8px, 1.6vw, 16px);
+  padding: clamp(6px, 1.4vmin, 12px) clamp(8px, 1.6vw, 16px);
   border: 1px solid var(--line);
   border-radius: 12px;
 }
@@ -67,7 +67,7 @@ body {
 
 h2 {
   margin: 0;
-  font-size: clamp(10px, 2.2vh, 15px);
+  font-size: clamp(10px, 2.2vmin, 15px);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -101,11 +101,12 @@ h2 .name {
   grid-area: 1 / 1;
 }
 
+/* La boîte SVG remplit la tuile (cercle centré, à la plus petite dimension) ; seul l'arc
+   tourne pour partir du haut, la boîte elle-même ne pivote pas et ne déborde jamais. */
 .ring {
+  width: 100%;
   height: 100%;
-  max-width: 100%;
-  aspect-ratio: 1;
-  transform: rotate(-90deg);
+  min-height: 0;
 }
 
 .ring circle {
@@ -118,6 +119,8 @@ h2 .name {
 }
 
 .ring .arc {
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px; /* centre du viewBox 120 × 120 */
   stroke: var(--level);
   stroke-linecap: round;
   transition: stroke-dasharray 0.6s ease, stroke 0.6s;
@@ -131,13 +134,13 @@ h2 .name {
 }
 
 .value {
-  font-size: clamp(18px, 7.5vh, 56px);
+  font-size: clamp(18px, 7.5vmin, 56px);
   font-weight: 300;
   font-variant-numeric: tabular-nums;
 }
 
 .detail {
-  font-size: clamp(10px, 2.4vh, 16px);
+  font-size: clamp(10px, 2.4vmin, 16px);
   color: var(--dim);
   font-variant-numeric: tabular-nums;
 }
@@ -151,7 +154,7 @@ h2 .name {
   display: flex;
   gap: 1.5em;
   margin-top: 0.3em;
-  font-size: clamp(12px, 3.4vh, 24px);
+  font-size: clamp(12px, 3.4vmin, 24px);
   font-variant-numeric: tabular-nums;
 }
 
@@ -180,7 +183,7 @@ h2 .name {
 .placeholder {
   margin: auto;
   color: var(--dim);
-  font-size: clamp(11px, 2.4vh, 16px);
+  font-size: clamp(11px, 2.4vmin, 16px);
 }
 
 .placeholder[hidden],
@@ -204,7 +207,7 @@ h2 .name {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6em;
-  font-size: clamp(11px, 3vh, 19px);
+  font-size: clamp(11px, 3vmin, 19px);
 }
 
 .session .project {
@@ -249,7 +252,7 @@ h2 .name {
   display: flex;
   gap: calc(var(--gap) * 2);
   padding: 0 4px;
-  font-size: clamp(10px, 2.3vh, 15px);
+  font-size: clamp(10px, 2.3vmin, 15px);
 }
 
 .disk {
@@ -293,7 +296,7 @@ body.offline .panel {
   border: 1px solid var(--crit);
   border-radius: 999px;
   color: var(--crit);
-  font-size: clamp(10px, 2.2vh, 14px);
+  font-size: clamp(10px, 2.2vmin, 14px);
 }
 
 .status[hidden] {
@@ -302,11 +305,18 @@ body.offline .panel {
 
 /* Portrait (téléphone mal orienté) : on empile plutôt que de déborder */
 @media (orientation: portrait) {
+  /* Jauges moins hautes (l'anneau est limité par la largeur), place rendue aux sessions */
   .panel {
-    grid-template-rows: 1fr 1.4fr auto;
+    grid-template-rows: minmax(0, 0.7fr) minmax(0, 1.6fr) auto;
   }
   .bottom {
     flex-direction: column;
+  }
+  .bottom .net {
+    flex: 1;
+  }
+  .bottom .ai {
+    flex: 1.3;
   }
   .disks {
     flex-direction: column;
@@ -366,7 +376,7 @@ body[data-mode='black'] .sleep {
   background: #000;
   color: var(--fg);
   font: inherit;
-  font-size: clamp(13px, 3vh, 18px);
+  font-size: clamp(13px, 3vmin, 18px);
 }
 
 .wakelock {
@@ -375,13 +385,13 @@ body[data-mode='black'] .sleep {
   border-radius: 8px;
   background: #111;
   color: var(--dim);
-  font-size: clamp(10px, 2.2vh, 13px);
+  font-size: clamp(10px, 2.2vmin, 13px);
 }
 
 /* --- Tokens Claude (tête de la tuile Sessions IA) --------------------------------------- */
 .usage {
   margin-top: 0.35em;
-  font-size: clamp(11px, 2.8vh, 17px);
+  font-size: clamp(11px, 2.8vmin, 17px);
   font-variant-numeric: tabular-nums;
 }
 
@@ -412,7 +422,7 @@ body[data-mode='black'] .sleep {
 .usage-bars {
   display: block;
   width: 100%;
-  height: clamp(6px, 2vh, 12px);
+  height: clamp(6px, 2vmin, 12px);
   margin-top: 0.25em;
 }
 
