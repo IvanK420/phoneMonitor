@@ -1,0 +1,249 @@
+/* Thème sombre OLED : fond noir pur, texte gris clair, couleurs saturées réservées aux alertes. */
+:root {
+  --bg: #000;
+  --fg: #d0d0d0;
+  --dim: #6e6e6e;
+  --line: #1a1a1a;
+  --ok: #3f9b62;
+  --warn: #f0a030;
+  --crit: #ff4b4b;
+  --unknown: #3a3a3a;
+  --down: #4a8fd8;
+  --up: #9a7ad6;
+  --gap: clamp(6px, 1.2vh, 12px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.panel {
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: 1.25fr 1fr auto;
+  gap: var(--gap);
+  padding: var(--gap) calc(var(--gap) + env(safe-area-inset-right)) var(--gap)
+    calc(var(--gap) + env(safe-area-inset-left));
+  transition: opacity 0.4s;
+}
+
+.row {
+  display: flex;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.tile {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(6px, 1.4vh, 12px) clamp(8px, 1.6vw, 16px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.tile[hidden] {
+  display: none;
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(10px, 2.2vh, 15px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+h2 .name {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Niveaux d'état → couleur de l'arc / de la barre */
+[data-level='ok'] { --level: var(--ok); }
+[data-level='warn'] { --level: var(--warn); }
+[data-level='crit'] { --level: var(--crit); }
+[data-level='unknown'] { --level: var(--unknown); }
+
+/* Jauges circulaires */
+.gauge-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.gauge-body > * {
+  grid-area: 1 / 1;
+}
+
+.ring {
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 1;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 9;
+}
+
+.ring .track {
+  stroke: var(--line);
+}
+
+.ring .arc {
+  stroke: var(--level);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.6s ease, stroke 0.6s;
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.value {
+  font-size: clamp(18px, 7.5vh, 56px);
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail {
+  font-size: clamp(10px, 2.4vh, 16px);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Réseau */
+.net {
+  flex: 1.4;
+}
+
+.rates {
+  display: flex;
+  gap: 1.5em;
+  margin-top: 0.3em;
+  font-size: clamp(12px, 3.4vh, 24px);
+  font-variant-numeric: tabular-nums;
+}
+
+.rates .down { color: var(--down); }
+.rates .up { color: var(--up); }
+.rates b { font-weight: 400; color: var(--fg); }
+
+.spark {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  margin-top: 0.4em;
+}
+
+.spark path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark .down-line { stroke: var(--down); }
+.spark .up-line { stroke: var(--up); opacity: 0.8; }
+
+/* Sessions IA (M3) */
+.placeholder {
+  margin: auto;
+  color: var(--dim);
+  font-size: clamp(11px, 2.4vh, 16px);
+}
+
+/* Disques : bandeau bas */
+.disks {
+  display: flex;
+  gap: calc(var(--gap) * 2);
+  padding: 0 4px;
+  font-size: clamp(10px, 2.3vh, 15px);
+}
+
+.disk {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.6em;
+  font-variant-numeric: tabular-nums;
+}
+
+.disk .mount { color: var(--dim); }
+.disk .detail { white-space: nowrap; }
+
+.bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  width: var(--p, 0%);
+  background: var(--level);
+  transition: width 0.6s ease;
+}
+
+/* Hors ligne : contenu atténué, message discret */
+body.offline .panel {
+  opacity: 0.3;
+}
+
+.status {
+  position: fixed;
+  top: var(--gap);
+  right: calc(var(--gap) * 2);
+  padding: 2px 10px;
+  border: 1px solid var(--crit);
+  border-radius: 999px;
+  color: var(--crit);
+  font-size: clamp(10px, 2.2vh, 14px);
+}
+
+.status[hidden] {
+  display: none;
+}
+
+/* Portrait (téléphone mal orienté) : on empile plutôt que de déborder */
+@media (orientation: portrait) {
+  .panel {
+    grid-template-rows: 1fr 1.4fr auto;
+  }
+  .bottom {
+    flex-direction: column;
+  }
+  .disks {
+    flex-direction: column;
+  }
+}
