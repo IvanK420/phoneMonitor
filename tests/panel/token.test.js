@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { resolveToken, TOKEN_KEY } from '../../panel/lib/token.js';
+import { resolveToken, storedToken, TOKEN_KEY } from '../../panel/lib/token.js';
 
 function memoryStorage(initial = {}) {
   const data = { ...initial };
@@ -59,4 +59,17 @@ test('stockage indisponible (navigation privée) : le jeton de l’URL sert quan
 
   assert.equal(resolveToken('http://h/?token=ABC', broken).token, 'ABC');
   assert.deepEqual(resolveToken('http://h/', broken), { token: null, cleanUrl: null });
+});
+
+test('storedToken : relit le jeton mémorisé, null si absent ou stockage indisponible', () => {
+  assert.equal(storedToken(memoryStorage({ [TOKEN_KEY]: 'X' })), 'X');
+  assert.equal(storedToken(memoryStorage()), null);
+  assert.equal(
+    storedToken({
+      getItem() {
+        throw new Error('SecurityError');
+      },
+    }),
+    null,
+  );
 });

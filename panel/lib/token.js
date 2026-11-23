@@ -2,7 +2,8 @@
 // Il est retiré de la barre d'adresse pour ne pas rester visible ni dans l'historique partagé.
 export const TOKEN_KEY = 'phonebox.token';
 
-function read(storage) {
+// Relu à chaque requête : un jeton reçu dans un autre onglet est pris en compte sans recharger.
+export function storedToken(storage) {
   try {
     return storage.getItem(TOKEN_KEY);
   } catch {
@@ -21,7 +22,7 @@ function write(storage, token) {
 export function resolveToken(href, storage) {
   const url = new URL(href);
   const fromUrl = url.searchParams.get('token');
-  if (!fromUrl) return { token: read(storage), cleanUrl: null };
+  if (!fromUrl) return { token: storedToken(storage), cleanUrl: null };
 
   write(storage, fromUrl);
   url.searchParams.delete('token');

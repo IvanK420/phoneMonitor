@@ -4,7 +4,7 @@ import { Poller } from './lib/poller.js';
 import { Ring } from './lib/ring.js';
 import { mergeOledConfig } from './lib/oled.js';
 import { sessionsModel } from './lib/sessions.js';
-import { resolveToken } from './lib/token.js';
+import { resolveToken, storedToken } from './lib/token.js';
 import { VERSION } from './lib/version.js';
 import { Screen } from './screen.js';
 
@@ -141,11 +141,17 @@ async function main() {
   // Version en info-bulle plutôt qu'à l'écran : rien de fixe qui marque l'OLED.
   document.getElementById('root').title = `PhoneBox Lite v${VERSION}`;
 
-  const { token, cleanUrl } = resolveToken(location.href, safeLocalStorage());
+  const storage = safeLocalStorage();
+  const { token: fromLoad, cleanUrl } = resolveToken(location.href, storage);
   if (cleanUrl) history.replaceState(null, '', cleanUrl);
-  const headers = token ? { 'X-Token': token } : {};
+  // Relu à chaque requête : un jeton reçu entre-temps (autre onglet) est pris en compte
+  // sans recharger. Repli sur celui du chargement si le stockage est indisponible.
+  const headers = () => {
+    const token = storedToken(storage) ?? fromLoad;
+    return token ? { 'X-Token': token } : {};
+  };
 
-  const screenControl = new Screen(document.getElementById('root'), await loadOledConfig(headers));
+  const screenControl = new Screen(document.getElementById('root'), await loadOledConfig(headers()));
   screenControl.start();
 
   new Poller({
@@ -158,6 +164,11 @@ async function main() {
       updateStatus();
     },
     onAuthError: (bad) => {
+      // Jeton redevenu valide : un rechargement récupère aussi les réglages OLED refusés au démarrage.
+      if (!bad && problems.auth) {
+        location.reload();
+        return;
+      }
       problems.auth = bad;
       updateStatus();
     },

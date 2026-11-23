@@ -255,3 +255,24 @@ test('hors ligne puis 401 : l’agent est joignable, retour en ligne', async () 
 
   assert.deepEqual(status, [true, false]);
 });
+
+test('en-têtes recalculés à chaque requête (jeton arrivé depuis un autre onglet)', async () => {
+  let token = null;
+  const seen = [];
+  const poller = new Poller({
+    url: '/api/stats',
+    headers: () => (token ? { 'X-Token': token } : {}),
+    fetch: async (url, init) => {
+      seen.push(init.headers);
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+    onData: () => {},
+    timers: fakeTimers(),
+  });
+
+  await poller.tick();
+  token = 'NOUVEAU';
+  await poller.tick();
+
+  assert.deepEqual(seen, [{}, { 'X-Token': 'NOUVEAU' }]);
+});

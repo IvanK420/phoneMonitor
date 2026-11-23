@@ -41,7 +41,7 @@ export class Poller {
     try {
       const response = await this.fetch(this.url, {
         cache: 'no-store',
-        headers: this.headers,
+        headers: typeof this.headers === 'function' ? this.headers() : this.headers,
         signal: controller.signal,
       });
       // Agent joignable mais jeton refusé : ce n'est pas une panne réseau, on le signale à part.
