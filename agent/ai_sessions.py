@@ -6,6 +6,9 @@ seulement outil, nom de projet, état et date. Les fichiers `*.key` ne sont jama
 
 import json
 import re
+import time
+from collections.abc import Callable
+from pathlib import Path
 
 UNKNOWN_PROJECT = "?"
 _PATH_SEPARATORS = re.compile(r"[/\\]")
@@ -63,3 +66,42 @@ def parse_claude(text: str, mtime: float) -> dict:
         "updated_at": int(max(stamps_ms) // 1000) if stamps_ms else int(mtime),
         "status": status if isinstance(status, str) else None,
     }
+
+
+def _public(tool: str, project: str, updated_at: int, state: str) -> dict:
+    """Seuls champs exposés par /api/ai : aucune autre donnée de session ne sort d'ici."""
+    return {"tool": tool, "project": project, "state": state, "updated_at": updated_at}
+
+
+def scan_claude(directory: Path, now: float) -> list[dict]:
+    """Parcourt `~/.claude/sessions`. N'ouvre QUE les `*.json` : les `*.key` contiennent des secrets."""
+    if not directory.is_dir():
+        return []
+    sessions = []
+    for path in directory.glob("*.json"):
+        try:
+            if not path.is_file():
+                continue
+            mtime = path.stat().st_mtime
+            parsed = parse_claude(path.read_text(encoding="utf-8", errors="replace"), mtime=mtime)
+        except OSError:  # session terminée entre le listage et la lecture, accès refusé…
+            continue
+        state = session_state(parsed["status"], age_s=now - parsed["updated_at"])
+        sessions.append(_public("claude-code", parsed["project"], parsed["updated_at"], state))
+    return sessions
+
+
+class AiSessionsCollector:
+    """Assemble la réponse de `/api/ai`."""
+
+    def __init__(self, claude_dir: Path, codex_dir: Path, clock: Callable[[], float] = time.time):
+        self._claude_dir = claude_dir
+        self._codex_dir = codex_dir
+        self._clock = clock
+
+    def collect(self, include_stale: bool = False) -> dict:
+        now = self._clock()
+        sessions = scan_claude(self._claude_dir, now)
+        if not include_stale:
+            sessions = [s for s in sessions if s["state"] != "stale"]
+        return {"sessions": sessions}
