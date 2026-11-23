@@ -4,8 +4,89 @@ Les vraies sources (psutil, nvidia-smi) vivent dans `sources.py` ; ici on ne fai
 que transformer leurs sorties en schéma `/api/stats` (voir 02-api.md).
 """
 
+import time
+from collections.abc import Callable
+from typing import Protocol
+
+from agent.net_rate import NetCounters, net_rate
+
 NVIDIA_SMI_QUERY = "name,utilization.gpu,memory.used,temperature.gpu"
 _NVIDIA_FIELDS = 4
+_GIB = 1024**3
+
+
+class HardwareSources(Protocol):
+    """Frontière avec le système : implémentée pour de vrai dans `sources.py`."""
+
+    def cpu_percent(self) -> float: ...
+    def cpu_temp(self) -> float | None: ...
+    def memory(self) -> tuple[int, int]: ...  # (utilisé, total) en octets
+    def mounts(self) -> list[str]: ...
+    def disk_usage(self, mount: str) -> tuple[int, int]: ...  # (utilisé, total) en octets
+    def net_counters(self) -> NetCounters: ...
+    def nvidia_smi(self) -> str | None: ...
+
+
+def _gb(n_bytes: int) -> float:
+    return round(n_bytes / _GIB, 1)
+
+
+def _percent(used: int, total: int) -> float:
+    return round(used / total * 100, 1) if total > 0 else 0.0
+
+
+def normalize_mount(mount: str) -> str:
+    """`C:\\` → `C:` ; `/home/` → `/home` ; `/` reste `/`."""
+    return mount.rstrip("\\/") or mount[:1]
+
+
+class StatsCollector:
+    """Assemble la réponse de `/api/stats`. Garde le relevé réseau précédent pour le débit."""
+
+    def __init__(self, sources: HardwareSources, clock: Callable[[], float] = time.time):
+        self._sources = sources
+        self._clock = clock
+        self._net_prev: tuple[float, NetCounters] | None = None
+
+    def collect(self) -> dict:
+        s = self._sources
+        now = self._clock()
+        return {
+            "ts": int(now),
+            "cpu": self._cpu(),
+            "ram": self._ram(),
+            "gpu": parse_nvidia_smi(s.nvidia_smi()),
+            "disks": self._disks(),
+            "net": self._net(now),
+        }
+
+    def _cpu(self) -> dict:
+        temp = self._sources.cpu_temp()
+        return {
+            "percent": round(self._sources.cpu_percent(), 1),
+            "temp_c": round(temp) if temp is not None else None,
+        }
+
+    def _ram(self) -> dict:
+        used, total = self._sources.memory()
+        return {"used_gb": _gb(used), "total_gb": _gb(total), "percent": _percent(used, total)}
+
+    def _disks(self) -> list[dict]:
+        disks = []
+        for mount in self._sources.mounts():
+            used, total = self._sources.disk_usage(mount)
+            disks.append({"mount": normalize_mount(mount), "used_gb": _gb(used), "total_gb": _gb(total)})
+        return disks
+
+    def _net(self, now: float) -> dict:
+        cur = self._sources.net_counters()
+        if self._net_prev is None:
+            rate = net_rate(None, cur, 0)
+        else:
+            prev_t, prev = self._net_prev
+            rate = net_rate(prev, cur, now - prev_t)
+        self._net_prev = (now, cur)
+        return rate
 
 
 def _int_or_none(raw: str) -> int | None:
